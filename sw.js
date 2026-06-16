@@ -1,4 +1,4 @@
-const CACHE_NAME = "golf-swing-sheet-maker-v9-ios-save-share";
+const CACHE_NAME = "golf-swing-sheet-maker-v10-40-and-16";
 const ASSETS = [
   "./",
   "./index.html",

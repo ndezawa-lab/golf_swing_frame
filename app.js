@@ -1,8 +1,13 @@
-const FRAME_COUNT = 40;
-const COLS = 5;
-const ROWS = 8;
-const CELL_W = 210;
-const CELL_H = 374;
+const SHEET_PRESETS = {
+  "40": { key: "40", count: 40, cols: 5, rows: 8, cellW: 210, cellH: 374, label: "40コマ版", purpose: "詳細解析向け" },
+  "16": { key: "16", count: 16, cols: 4, rows: 4, cellW: 210, cellH: 374, label: "16コマ版", purpose: "確認・共有向け" }
+};
+const DEFAULT_SHEET_KEY = "40";
+const FRAME_COUNT = SHEET_PRESETS["40"].count;
+const COLS = SHEET_PRESETS["40"].cols;
+const ROWS = SHEET_PRESETS["40"].rows;
+const CELL_W = SHEET_PRESETS["40"].cellW;
+const CELL_H = SHEET_PRESETS["40"].cellH;
 const GAP = 12;
 const OUTER = 16;
 const HEADER_H = 84;
@@ -27,6 +32,9 @@ const endLabel = document.getElementById("endLabel");
 const rangeLabel = document.getElementById("rangeLabel");
 const statusEl = document.getElementById("status");
 const sheetCanvas = document.getElementById("sheetCanvas");
+const sheetCanvas16 = document.getElementById("sheetCanvas16");
+const outputSelector = document.getElementById("outputSelector");
+const outputChoiceBtns = document.querySelectorAll("[data-sheet-choice]");
 const workCanvas = document.getElementById("workCanvas");
 const downloadBtn = document.getElementById("downloadBtn");
 const savePanel = document.getElementById("savePanel");
@@ -48,6 +56,8 @@ let confidenceText = "-";
 let lastSheetReady = false;
 let busy = false;
 let latestImageUrl = null;
+let latestImageKey = null;
+let selectedSheetKey = DEFAULT_SHEET_KEY;
 
 function fmt(t) {
   return Number(t || 0).toFixed(2);
@@ -69,6 +79,9 @@ function setBusy(flag) {
   busy = flag;
   const disabled = !!flag;
   downloadBtn.disabled = disabled || !lastSheetReady;
+  outputChoiceBtns.forEach((btn) => {
+    btn.disabled = disabled || !lastSheetReady;
+  });
   regenerateBtn.disabled = disabled;
   autoDetectBtn.disabled = disabled;
   markStartBtn.disabled = disabled;
@@ -89,17 +102,28 @@ function updateRangeUI() {
 }
 
 function resetOutput() {
-  const ctx = sheetCanvas.getContext("2d");
-  ctx.clearRect(0, 0, sheetCanvas.width, sheetCanvas.height);
-  sheetCanvas.classList.add("hidden");
+  [sheetCanvas, sheetCanvas16].forEach((canvas) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.classList.add("hidden");
+  });
+  clearSavePreview();
+  lastSheetReady = false;
+  downloadBtn.disabled = true;
+  outputChoiceBtns.forEach((btn) => {
+    btn.disabled = true;
+  });
+}
+
+function clearSavePreview() {
   if (savePanel) savePanel.classList.add("hidden");
   if (savePreview) savePreview.removeAttribute("src");
   if (latestImageUrl) {
     URL.revokeObjectURL(latestImageUrl);
     latestImageUrl = null;
+    latestImageKey = null;
   }
-  lastSheetReady = false;
-  downloadBtn.disabled = true;
 }
 
 async function loadVideoFile(file) {
@@ -125,7 +149,7 @@ async function loadVideoFile(file) {
     timelineBox.classList.remove("hidden");
     workflowCard.classList.remove("hidden");
     manualCard.classList.remove("hidden");
-    videoMeta.textContent = `ファイル: ${file.name} / 長さ: ${fmt(duration)}秒 / 解像度: ${video.videoWidth}×${video.videoHeight} / 出力: 固定40コマ・5列×8行`;
+    videoMeta.textContent = `ファイル: ${file.name} / 長さ: ${fmt(duration)}秒 / 解像度: ${video.videoWidth}×${video.videoHeight} / 出力: 40コマ版・16コマ版`;
     scrubber.min = 0;
     scrubber.max = duration;
     scrubber.value = 0;
@@ -228,6 +252,37 @@ regenerateBtn.addEventListener("click", async () => {
   }
 });
 
+outputChoiceBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    selectSheet(btn.dataset.sheetChoice);
+  });
+});
+
+function getSheetCanvas(key = selectedSheetKey) {
+  return key === "16" ? sheetCanvas16 : sheetCanvas;
+}
+
+function getSheetPreset(key = selectedSheetKey) {
+  return SHEET_PRESETS[key] || SHEET_PRESETS[DEFAULT_SHEET_KEY];
+}
+
+function selectSheet(key) {
+  if (!SHEET_PRESETS[key]) return;
+  selectedSheetKey = key;
+
+  outputChoiceBtns.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.sheetChoice === key);
+  });
+
+  const selectedCanvas = getSheetCanvas(key);
+  [sheetCanvas, sheetCanvas16].forEach((canvas) => {
+    if (!canvas) return;
+    canvas.classList.toggle("hidden", canvas !== selectedCanvas || !lastSheetReady);
+  });
+
+  clearSavePreview();
+}
+
 downloadBtn.addEventListener("click", async () => {
   if (!lastSheetReady) return;
   await saveOrShareImage();
@@ -253,26 +308,31 @@ function canvasToPngBlob(canvas) {
 }
 
 async function ensureLatestImageUrl() {
-  if (latestImageUrl) return latestImageUrl;
-  const blob = await canvasToPngBlob(sheetCanvas);
+  if (latestImageUrl && latestImageKey === selectedSheetKey) return latestImageUrl;
+  if (latestImageUrl) URL.revokeObjectURL(latestImageUrl);
+
+  const blob = await canvasToPngBlob(getSheetCanvas());
   latestImageUrl = URL.createObjectURL(blob);
+  latestImageKey = selectedSheetKey;
   return latestImageUrl;
 }
 
 async function saveOrShareImage() {
-  const filename = sanitizeFilename(`${currentFileName}_swing_sheet_40frames.png`);
-  const blob = await canvasToPngBlob(sheetCanvas);
+  const preset = getSheetPreset();
+  const filename = sanitizeFilename(`${currentFileName}_swing_sheet_${preset.count}frames.png`);
+  const blob = await canvasToPngBlob(getSheetCanvas());
   const file = new File([blob], filename, { type: "image/png" });
 
   if (latestImageUrl) URL.revokeObjectURL(latestImageUrl);
   latestImageUrl = URL.createObjectURL(blob);
+  latestImageKey = selectedSheetKey;
 
   if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
     try {
       await navigator.share({
         files: [file],
-        title: "Golf Swing Contact Sheet",
-        text: "ゴルフスイングの40コマ一覧画像"
+        title: `Golf Swing Contact Sheet ${preset.count} frames`,
+        text: `ゴルフスイングの${preset.count}コマ一覧画像`
       });
       return;
     } catch (error) {
@@ -459,22 +519,22 @@ async function autoDetectAndGenerate() {
   await generateSheet(true);
 }
 
-function captureFrame(time, index) {
+function captureFrame(time, index, preset) {
   const cellCanvas = document.createElement("canvas");
-  cellCanvas.width = CELL_W;
-  cellCanvas.height = CELL_H;
+  cellCanvas.width = preset.cellW;
+  cellCanvas.height = preset.cellH;
   const ctx = cellCanvas.getContext("2d");
 
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, CELL_W, CELL_H);
+  ctx.fillRect(0, 0, preset.cellW, preset.cellH);
 
   const vw = video.videoWidth;
   const vh = video.videoHeight;
-  const scale = Math.min(CELL_W / vw, CELL_H / vh);
+  const scale = Math.min(preset.cellW / vw, preset.cellH / vh);
   const drawW = vw * scale;
   const drawH = vh * scale;
-  const dx = (CELL_W - drawW) / 2;
-  const dy = (CELL_H - drawH) / 2;
+  const dx = (preset.cellW - drawW) / 2;
+  const dy = (preset.cellH - drawH) / 2;
   ctx.drawImage(video, dx, dy, drawW, drawH);
 
   const label = `#${String(index + 1).padStart(2, "0")}  ${fmt(time)}s`;
@@ -499,6 +559,19 @@ function roundRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
+async function captureFramesForPreset(preset) {
+  const times = buildTimes(startTime, endTime, preset.count);
+  const frames = [];
+
+  for (let i = 0; i < times.length; i += 1) {
+    setStatus(`${preset.label}を生成中です… ${i + 1}/${preset.count}`);
+    await seekVideo(times[i]);
+    frames.push(captureFrame(times[i], i, preset));
+  }
+
+  return frames;
+}
+
 async function generateSheet(autoMode = false) {
   if (!video.src || !Number.isFinite(video.duration)) {
     throw new Error("先に動画を読み込んでください。");
@@ -509,56 +582,56 @@ async function generateSheet(autoMode = false) {
 
   setBusy(true);
   resetOutput();
-  const times = buildTimes(startTime, endTime, FRAME_COUNT);
-  const frames = [];
 
-  for (let i = 0; i < times.length; i += 1) {
-    setStatus(`一覧画像を生成中です… ${i + 1}/${FRAME_COUNT}`);
-    await seekVideo(times[i]);
-    frames.push(captureFrame(times[i], i));
-  }
+  const preset40 = SHEET_PRESETS["40"];
+  const frames40 = await captureFramesForPreset(preset40);
+  drawSheet(frames40, preset40, sheetCanvas);
 
-  drawSheet(frames);
+  const preset16 = SHEET_PRESETS["16"];
+  const frames16 = await captureFramesForPreset(preset16);
+  drawSheet(frames16, preset16, sheetCanvas16);
+
   lastSheetReady = true;
+  outputChoiceBtns.forEach((btn) => {
+    btn.disabled = false;
+  });
+  selectSheet(selectedSheetKey);
   downloadBtn.disabled = false;
   setBusy(false);
-  setStatus(
-    autoMode
-      ? `自動推定完了: ${fmt(startTime)}s〜${fmt(endTime)}s を40コマの一覧画像にしました。`
-      : `再生成完了: ${fmt(startTime)}s〜${fmt(endTime)}s を40コマの一覧画像にしました。`
-  );
+
+  const message = `${fmt(startTime)}s〜${fmt(endTime)}s を40コマ版・16コマ版の一覧画像にしました。`;
+  setStatus(autoMode ? `自動推定完了: ${message}` : `再生成完了: ${message}`);
 }
 
-function drawSheet(frames) {
-  sheetCanvas.width = OUTER * 2 + COLS * CELL_W + (COLS - 1) * GAP;
-  sheetCanvas.height = HEADER_H + OUTER + ROWS * CELL_H + (ROWS - 1) * GAP + OUTER;
-  sheetCanvas.classList.remove("hidden");
+function drawSheet(frames, preset, canvas) {
+  canvas.width = OUTER * 2 + preset.cols * preset.cellW + (preset.cols - 1) * GAP;
+  canvas.height = HEADER_H + OUTER + preset.rows * preset.cellH + (preset.rows - 1) * GAP + OUTER;
+  canvas.classList.remove("hidden");
 
-  const ctx = sheetCanvas.getContext("2d");
+  const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.fillStyle = "#132017";
   ctx.font = "700 28px system-ui, sans-serif";
-  ctx.fillText("Golf Swing Contact Sheet", OUTER, 36);
+  ctx.fillText(`Golf Swing Contact Sheet ${preset.count} Frames`, OUTER, 36);
 
   ctx.fillStyle = "#617064";
   ctx.font = "600 14px system-ui, sans-serif";
-  const meta = `${currentFileName} / Address ${fmt(startTime)}s / Finish ${fmt(endTime)}s / Confidence ${confidenceText} / 40 frames / 5 x 8 layout`;
+  const meta = `${currentFileName} / Address ${fmt(startTime)}s / Finish ${fmt(endTime)}s / Confidence ${confidenceText} / ${preset.count} frames / ${preset.cols} x ${preset.rows} layout`;
   ctx.fillText(meta, OUTER, 60);
 
   frames.forEach((frameCanvas, idx) => {
-    const col = idx % COLS;
-    const row = Math.floor(idx / COLS);
-    const x = OUTER + col * (CELL_W + GAP);
-    const y = HEADER_H + row * (CELL_H + GAP);
+    const col = idx % preset.cols;
+    const row = Math.floor(idx / preset.cols);
+    const x = OUTER + col * (preset.cellW + GAP);
+    const y = HEADER_H + row * (preset.cellH + GAP);
     ctx.strokeStyle = "#dfe6dc";
     ctx.lineWidth = 1;
-    ctx.strokeRect(x - 0.5, y - 0.5, CELL_W + 1, CELL_H + 1);
-    ctx.drawImage(frameCanvas, x, y, CELL_W, CELL_H);
+    ctx.strokeRect(x - 0.5, y - 0.5, preset.cellW + 1, preset.cellH + 1);
+    ctx.drawImage(frameCanvas, x, y, preset.cellW, preset.cellH);
   });
 }
-
 
 // PWA: service worker registration and simple install status
 const installStatus = document.getElementById("installStatus");

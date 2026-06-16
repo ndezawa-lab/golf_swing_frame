@@ -109,7 +109,7 @@
         <div class="summary-box emphasis">
           <span class="summary-label">切り出し範囲</span>
           <strong id="rangeLabel">0.00s</strong>
-          <span class="note">固定40コマ / 5列×8行</span>
+          <span class="note">40コマ版 / 16コマ版</span>
         </div>
       </div>
 
@@ -141,19 +141,32 @@
       <div class="section-head">
         <div>
           <h2>STEP 3: 一覧画像を保存</h2>
-          <p>ChatGPT解析向けに、40コマ・5列×8行・時刻ラベル付きで固定出力します。</p>
+          <p>ChatGPT解析向けに、40コマ版と16コマ版を同時生成します。保存したい形式を選択してください。</p>
         </div>
         <div class="inline-actions">
-          <button id="downloadBtn" class="primary" type="button" disabled>画像を保存 / 共有</button>
+          <button id="downloadBtn" class="primary" type="button" disabled>選択中の画像を保存 / 共有</button>
         </div>
       </div>
 
       <div id="status" class="status">動画を選択してください。</div>
-      <canvas id="sheetCanvas" class="sheet hidden"></canvas>
+
+      <div id="outputSelector" class="output-selector">
+        <button class="sheet-choice active" data-sheet-choice="40" type="button" disabled>
+          <strong>40コマ版</strong>
+          <span>詳細解析向け / 5列×8行</span>
+        </button>
+        <button class="sheet-choice" data-sheet-choice="16" type="button" disabled>
+          <strong>16コマ版</strong>
+          <span>確認・共有向け / 4列×4行</span>
+        </button>
+      </div>
+
+      <canvas id="sheetCanvas" class="sheet hidden" data-sheet-key="40"></canvas>
+      <canvas id="sheetCanvas16" class="sheet hidden" data-sheet-key="16"></canvas>
 
       <div id="savePanel" class="save-panel hidden">
         <h3>iPhoneで保存する場合</h3>
-        <p>「画像を保存 / 共有」を押すと、対応端末では共有シートが開きます。開かない場合は、下のプレビュー画像を長押しして「写真に保存」または「画像を保存」を選んでください。</p>
+        <p>保存したい形式を上で選択してから「選択中の画像を保存 / 共有」を押してください。共有シートが開かない場合は、下のプレビュー画像を長押しして保存してください。</p>
         <div class="save-actions">
           <button id="openImageBtn" class="ghost wide" type="button">画像だけを開く</button>
           <button id="closePreviewBtn" class="ghost wide" type="button">プレビューを閉じる</button>
