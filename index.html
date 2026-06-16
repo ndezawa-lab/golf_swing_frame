@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Golf Swing Sheet Maker PWA</title>
+  <meta name="theme-color" content="#1f7a41" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Swing Sheet" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="./style.css" />
+  <script src="./config.js"></script>
+</head>
+<body>
+  <section id="authGate" class="auth-gate">
+    <form id="authForm" class="auth-card">
+      <div class="auth-icon">⛳</div>
+      <h1>Golf Swing Sheet Maker</h1>
+      <p>利用するにはパスワードを入力してください。</p>
+      <input id="passwordInput" type="password" placeholder="パスワード" autocomplete="current-password" />
+      <button type="submit" class="primary wide">ログイン</button>
+      <div id="authError" class="auth-error"></div>
+      <small>動画処理はログイン後も端末内だけで実行されます。</small>
+    </form>
+  </section>
+
+  <div id="appRoot" class="locked">
+    <button id="logoutBtn" type="button" class="logout-btn hidden">ログアウト</button>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Golf Swing Sheet Maker PWA</p>
+      <h1>ホーム画面から使える40コマ一覧化アプリ</h1>
+      <p class="sub">ゴルフ練習場での利用を想定。ホーム画面追加・オフライン起動に対応したPWA版</p>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="card hero-card">
+      <div id="dropZone" class="upload-zone">
+        <span class="upload-icon">⛳</span>
+        <strong>動画を読み込み</strong>
+        <small>撮影済み動画を選ぶか、その場でカメラ撮影するかを選択できます</small>
+
+        <div class="video-source-actions">
+          <label for="filePickerInput" class="button-like primary wide">撮影済み動画を選択</label>
+          <label for="cameraInput" class="button-like ghost wide">カメラで新規撮影</label>
+        </div>
+
+        <input id="filePickerInput" class="visually-hidden-file" type="file" accept="video/*" />
+        <input id="cameraInput" class="visually-hidden-file" type="file" accept="video/*" capture="environment" />
+      </div>
+
+      <div id="videoMeta" class="meta hidden"></div>
+
+      <div class="video-wrap">
+        <video id="video" playsinline controls preload="metadata"></video>
+      </div>
+
+      <div id="timelineBox" class="timeline-box hidden">
+        <div class="chips">
+          <div class="chip current">現在位置 <span id="currentTimeLabel">0.00</span>s</div>
+          <div class="chip">動画長 <span id="durationLabel">0.00</span>s</div>
+          <div class="chip confidence">推定精度 <span id="confidenceLabel">-</span></div>
+        </div>
+        <input id="scrubber" class="scrubber" type="range" min="0" max="0" step="0.01" value="0" />
+        <div class="nudge-grid">
+          <button class="ghost" data-nudge="-0.20" type="button">-0.20s</button>
+          <button class="ghost" data-nudge="-0.04" type="button">-0.04s</button>
+          <button class="ghost" data-nudge="0.04" type="button">+0.04s</button>
+          <button class="ghost" data-nudge="0.20" type="button">+0.20s</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card install-card">
+      <div class="section-head compact">
+        <div>
+          <h2>ホーム画面に追加して使う</h2>
+          <p>iPhoneはSafariの共有ボタンから「ホーム画面に追加」。AndroidはChromeのメニューから「アプリをインストール」または「ホーム画面に追加」。一度開くと、次回以降はオフラインでも起動できます。</p>
+        </div>
+      </div>
+      <div class="install-status" id="installStatus">PWA準備中...</div>
+    </section>
+
+    <section id="workflowCard" class="card hidden">
+      <div class="section-head">
+        <div>
+          <h2>STEP 1: 自動推定結果</h2>
+          <p>まず自動推定を使い、必要な場合だけ微調整してください。</p>
+        </div>
+        <div class="inline-actions">
+          <button id="autoDetectBtn" class="primary" type="button">自動推定を再実行</button>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-box accent">
+          <span class="summary-label">アドレス</span>
+          <strong id="startLabel">0.00s</strong>
+          <button id="jumpStartBtn" type="button" class="mini">ここへ移動</button>
+        </div>
+        <div class="summary-box accent2">
+          <span class="summary-label">フィニッシュ</span>
+          <strong id="endLabel">0.00s</strong>
+          <button id="jumpEndBtn" type="button" class="mini">ここへ移動</button>
+        </div>
+        <div class="summary-box emphasis">
+          <span class="summary-label">切り出し範囲</span>
+          <strong id="rangeLabel">0.00s</strong>
+          <span class="note">固定40コマ / 5列×8行</span>
+        </div>
+      </div>
+
+      <div class="tips-box">
+        <div class="tips-title">自動推定の考え方</div>
+        <p>動画全体の動き量を見て、<strong>静止状態 → スイング開始</strong> をアドレス候補、<strong>インパクト後に動きが落ち着く地点</strong> をフィニッシュ候補として推定しています。</p>
+      </div>
+    </section>
+
+    <section id="manualCard" class="card hidden">
+      <div class="section-head">
+        <div>
+          <h2>STEP 2: 必要なら微調整</h2>
+          <p>再生位置を合わせて、大きいボタンで開始点・終了点を上書きできます。</p>
+        </div>
+      </div>
+
+      <div class="manual-grid">
+        <button id="markStartBtn" class="primary big" type="button">現在位置をアドレスに設定</button>
+        <button id="markEndBtn" class="primary big alt" type="button">現在位置をフィニッシュに設定</button>
+      </div>
+
+      <div class="action-row tight">
+        <button id="regenerateBtn" class="primary wide" type="button">この範囲で一覧画像を再生成</button>
+      </div>
+    </section>
+
+    <section class="card result-card">
+      <div class="section-head">
+        <div>
+          <h2>STEP 3: 一覧画像を保存</h2>
+          <p>ChatGPT解析向けに、40コマ・5列×8行・時刻ラベル付きで固定出力します。</p>
+        </div>
+        <div class="inline-actions">
+          <button id="downloadBtn" class="primary" type="button" disabled>一覧画像を保存</button>
+        </div>
+      </div>
+
+      <div id="status" class="status">動画を選択してください。</div>
+      <canvas id="sheetCanvas" class="sheet hidden"></canvas>
+    </section>
+  </main>
+
+  <canvas id="workCanvas" class="hidden"></canvas>
+  <script src="./app.js"></script>
+    </div>
+  <script src="./auth.js"></script>
+</body>
+</html>
