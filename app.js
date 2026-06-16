@@ -29,6 +29,10 @@ const statusEl = document.getElementById("status");
 const sheetCanvas = document.getElementById("sheetCanvas");
 const workCanvas = document.getElementById("workCanvas");
 const downloadBtn = document.getElementById("downloadBtn");
+const savePanel = document.getElementById("savePanel");
+const savePreview = document.getElementById("savePreview");
+const openImageBtn = document.getElementById("openImageBtn");
+const closePreviewBtn = document.getElementById("closePreviewBtn");
 const regenerateBtn = document.getElementById("regenerateBtn");
 const autoDetectBtn = document.getElementById("autoDetectBtn");
 const markStartBtn = document.getElementById("markStartBtn");
@@ -43,6 +47,7 @@ let endTime = 0;
 let confidenceText = "-";
 let lastSheetReady = false;
 let busy = false;
+let latestImageUrl = null;
 
 function fmt(t) {
   return Number(t || 0).toFixed(2);
@@ -87,6 +92,12 @@ function resetOutput() {
   const ctx = sheetCanvas.getContext("2d");
   ctx.clearRect(0, 0, sheetCanvas.width, sheetCanvas.height);
   sheetCanvas.classList.add("hidden");
+  if (savePanel) savePanel.classList.add("hidden");
+  if (savePreview) savePreview.removeAttribute("src");
+  if (latestImageUrl) {
+    URL.revokeObjectURL(latestImageUrl);
+    latestImageUrl = null;
+  }
   lastSheetReady = false;
   downloadBtn.disabled = true;
 }
@@ -217,15 +228,74 @@ regenerateBtn.addEventListener("click", async () => {
   }
 });
 
-downloadBtn.addEventListener("click", () => {
+downloadBtn.addEventListener("click", async () => {
   if (!lastSheetReady) return;
+  await saveOrShareImage();
+});
+
+openImageBtn?.addEventListener("click", async () => {
+  if (!lastSheetReady) return;
+  const url = await ensureLatestImageUrl();
+  window.open(url, "_blank", "noopener,noreferrer");
+});
+
+closePreviewBtn?.addEventListener("click", () => {
+  if (savePanel) savePanel.classList.add("hidden");
+});
+
+function canvasToPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("画像データの生成に失敗しました。"));
+    }, "image/png");
+  });
+}
+
+async function ensureLatestImageUrl() {
+  if (latestImageUrl) return latestImageUrl;
+  const blob = await canvasToPngBlob(sheetCanvas);
+  latestImageUrl = URL.createObjectURL(blob);
+  return latestImageUrl;
+}
+
+async function saveOrShareImage() {
+  const filename = sanitizeFilename(`${currentFileName}_swing_sheet_40frames.png`);
+  const blob = await canvasToPngBlob(sheetCanvas);
+  const file = new File([blob], filename, { type: "image/png" });
+
+  if (latestImageUrl) URL.revokeObjectURL(latestImageUrl);
+  latestImageUrl = URL.createObjectURL(blob);
+
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: "Golf Swing Contact Sheet",
+        text: "ゴルフスイングの40コマ一覧画像"
+      });
+      return;
+    } catch (error) {
+      // 共有キャンセルや非対応時は下のプレビュー保存へフォールバックします。
+    }
+  }
+
   const a = document.createElement("a");
-  a.href = sheetCanvas.toDataURL("image/png");
-  a.download = sanitizeFilename(`${currentFileName}_swing_sheet_40frames.png`);
+  a.href = latestImageUrl;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
-});
+
+  showSavePreview(latestImageUrl);
+}
+
+function showSavePreview(url) {
+  if (!savePanel || !savePreview) return;
+  savePreview.src = url;
+  savePanel.classList.remove("hidden");
+  savePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 function buildTimes(start, end, count) {
   const range = Math.max(0.001, end - start);

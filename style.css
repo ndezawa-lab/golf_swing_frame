@@ -465,3 +465,48 @@ button.mini {
   border: 0 !important;
   opacity: 0 !important;
 }
+
+
+.save-panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #f7faf8;
+  padding: 14px;
+}
+
+.save-panel h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.save-panel p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.save-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.save-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  -webkit-touch-callout: default;
+  user-select: auto;
+}
+
+@media (max-width: 560px) {
+  .save-actions {
+    grid-template-columns: 1fr;
+  }
+}

@@ -144,12 +144,22 @@
           <p>ChatGPT解析向けに、40コマ・5列×8行・時刻ラベル付きで固定出力します。</p>
         </div>
         <div class="inline-actions">
-          <button id="downloadBtn" class="primary" type="button" disabled>一覧画像を保存</button>
+          <button id="downloadBtn" class="primary" type="button" disabled>画像を保存 / 共有</button>
         </div>
       </div>
 
       <div id="status" class="status">動画を選択してください。</div>
       <canvas id="sheetCanvas" class="sheet hidden"></canvas>
+
+      <div id="savePanel" class="save-panel hidden">
+        <h3>iPhoneで保存する場合</h3>
+        <p>「画像を保存 / 共有」を押すと、対応端末では共有シートが開きます。開かない場合は、下のプレビュー画像を長押しして「写真に保存」または「画像を保存」を選んでください。</p>
+        <div class="save-actions">
+          <button id="openImageBtn" class="ghost wide" type="button">画像だけを開く</button>
+          <button id="closePreviewBtn" class="ghost wide" type="button">プレビューを閉じる</button>
+        </div>
+        <img id="savePreview" class="save-preview" alt="生成したスイング一覧画像プレビュー" />
+      </div>
     </section>
   </main>
 
