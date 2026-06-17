@@ -1,4 +1,4 @@
-const CACHE_NAME = "golf-swing-sheet-maker-v12-no-login-direct-download";
+const CACHE_NAME = "golf-swing-sheet-maker-v14-clean-header";
 const ASSETS = [
   "./",
   "./index.html",

@@ -576,9 +576,9 @@ function updateInstallStatus(message) {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js")
-      .then(() => updateInstallStatus("PWA対応済み: ホーム画面に追加するとアプリ風に起動できます。"))
-      .catch(() => updateInstallStatus("PWA登録に失敗しました。HTTPS環境またはGitHub Pagesで開いてください。"));
+      .then(() => updateInstallStatus("ホーム画面に追加すると、アプリのように起動できます。"))
+      .catch(() => updateInstallStatus("ホーム画面追加の準備に失敗しました。HTTPS環境またはGitHub Pagesで開いてください。"));
   });
 } else {
-  updateInstallStatus("このブラウザはPWAのオフライン起動に対応していない可能性があります。");
+  updateInstallStatus("このブラウザではホーム画面追加やオフライン起動が制限される可能性があります。");
 }
