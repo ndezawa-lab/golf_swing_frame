@@ -17,6 +17,7 @@ const videoMeta = document.getElementById("videoMeta");
 const timelineBox = document.getElementById("timelineBox");
 const workflowCard = document.getElementById("workflowCard");
 const manualCard = document.getElementById("manualCard");
+const resultCard = document.getElementById("resultCard");
 const scrubber = document.getElementById("scrubber");
 const currentTimeLabel = document.getElementById("currentTimeLabel");
 const durationLabel = document.getElementById("durationLabel");
@@ -132,6 +133,7 @@ async function loadVideoFile(file) {
     timelineBox.classList.remove("hidden");
     workflowCard.classList.remove("hidden");
     manualCard.classList.remove("hidden");
+    resultCard.classList.remove("hidden");
     videoMeta.textContent = `ファイル: ${file.name} / 長さ: ${fmt(duration)}秒 / 解像度: ${video.videoWidth}×${video.videoHeight} / 出力: 40コマ版・16コマ版`;
     scrubber.min = 0;
     scrubber.max = duration;
