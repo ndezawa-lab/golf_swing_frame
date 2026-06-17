@@ -1,13 +1,7 @@
 const SHEET_PRESETS = {
-  "40": { key: "40", count: 40, cols: 5, rows: 8, cellW: 210, cellH: 374, label: "40コマ版", purpose: "詳細解析向け" },
-  "16": { key: "16", count: 16, cols: 4, rows: 4, cellW: 210, cellH: 374, label: "16コマ版", purpose: "確認・共有向け" }
+  "40": { key: "40", count: 40, cols: 5, rows: 8, cellW: 210, cellH: 374, label: "40コマ版" },
+  "16": { key: "16", count: 16, cols: 4, rows: 4, cellW: 210, cellH: 374, label: "16コマ版" }
 };
-const DEFAULT_SHEET_KEY = "40";
-const FRAME_COUNT = SHEET_PRESETS["40"].count;
-const COLS = SHEET_PRESETS["40"].cols;
-const ROWS = SHEET_PRESETS["40"].rows;
-const CELL_W = SHEET_PRESETS["40"].cellW;
-const CELL_H = SHEET_PRESETS["40"].cellH;
 const GAP = 12;
 const OUTER = 16;
 const HEADER_H = 84;
@@ -31,16 +25,14 @@ const startLabel = document.getElementById("startLabel");
 const endLabel = document.getElementById("endLabel");
 const rangeLabel = document.getElementById("rangeLabel");
 const statusEl = document.getElementById("status");
+const savePanel = document.getElementById("savePanel");
 const sheetCanvas = document.getElementById("sheetCanvas");
 const sheetCanvas16 = document.getElementById("sheetCanvas16");
-const outputSelector = document.getElementById("outputSelector");
-const outputChoiceBtns = document.querySelectorAll("[data-sheet-choice]");
 const workCanvas = document.getElementById("workCanvas");
-const downloadBtn = document.getElementById("downloadBtn");
-const savePanel = document.getElementById("savePanel");
-const savePreview = document.getElementById("savePreview");
-const openImageBtn = document.getElementById("openImageBtn");
-const closePreviewBtn = document.getElementById("closePreviewBtn");
+
+const downloadBothBtn = document.getElementById("downloadBothBtn");
+const download40Btn = document.getElementById("download40Btn");
+const download16Btn = document.getElementById("download16Btn");
 const regenerateBtn = document.getElementById("regenerateBtn");
 const autoDetectBtn = document.getElementById("autoDetectBtn");
 const markStartBtn = document.getElementById("markStartBtn");
@@ -55,9 +47,7 @@ let endTime = 0;
 let confidenceText = "-";
 let lastSheetReady = false;
 let busy = false;
-let latestImageUrl = null;
-let latestImageKey = null;
-let selectedSheetKey = DEFAULT_SHEET_KEY;
+let activeDownloadUrls = [];
 
 function fmt(t) {
   return Number(t || 0).toFixed(2);
@@ -78,14 +68,12 @@ function sanitizeFilename(name) {
 function setBusy(flag) {
   busy = flag;
   const disabled = !!flag;
-  downloadBtn.disabled = disabled || !lastSheetReady;
-  outputChoiceBtns.forEach((btn) => {
+  [downloadBothBtn, download40Btn, download16Btn].forEach((btn) => {
     btn.disabled = disabled || !lastSheetReady;
   });
-  regenerateBtn.disabled = disabled;
-  autoDetectBtn.disabled = disabled;
-  markStartBtn.disabled = disabled;
-  markEndBtn.disabled = disabled;
+  [regenerateBtn, autoDetectBtn, markStartBtn, markEndBtn].forEach((btn) => {
+    btn.disabled = disabled;
+  });
 }
 
 function updateCurrentTimeUI() {
@@ -101,29 +89,23 @@ function updateRangeUI() {
   confidenceLabel.textContent = confidenceText;
 }
 
+function clearDownloadUrls() {
+  activeDownloadUrls.forEach((url) => URL.revokeObjectURL(url));
+  activeDownloadUrls = [];
+}
+
 function resetOutput() {
   [sheetCanvas, sheetCanvas16].forEach((canvas) => {
-    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvas.classList.add("hidden");
   });
-  clearSavePreview();
+  savePanel.classList.add("hidden");
+  clearDownloadUrls();
   lastSheetReady = false;
-  downloadBtn.disabled = true;
-  outputChoiceBtns.forEach((btn) => {
+  [downloadBothBtn, download40Btn, download16Btn].forEach((btn) => {
     btn.disabled = true;
   });
-}
-
-function clearSavePreview() {
-  if (savePanel) savePanel.classList.add("hidden");
-  if (savePreview) savePreview.removeAttribute("src");
-  if (latestImageUrl) {
-    URL.revokeObjectURL(latestImageUrl);
-    latestImageUrl = null;
-    latestImageKey = null;
-  }
 }
 
 async function loadVideoFile(file) {
@@ -131,6 +113,7 @@ async function loadVideoFile(file) {
     setStatus("動画ファイルを選択してください。");
     return;
   }
+
   resetOutput();
   currentFileName = file.name.replace(/\.[^.]+$/, "") || "golf_swing";
   confidenceText = "-";
@@ -172,6 +155,7 @@ async function loadVideoFile(file) {
 
 filePickerInput.addEventListener("change", (e) => loadVideoFile(e.target.files[0]));
 cameraInput.addEventListener("change", (e) => loadVideoFile(e.target.files[0]));
+
 ["dragenter", "dragover"].forEach((name) => {
   dropZone.addEventListener(name, (e) => {
     e.preventDefault();
@@ -244,7 +228,7 @@ autoDetectBtn.addEventListener("click", async () => {
 regenerateBtn.addEventListener("click", async () => {
   if (busy) return;
   try {
-    await generateSheet();
+    await generateSheets();
   } catch (err) {
     console.error(err);
     setStatus(`エラー: ${err.message}`);
@@ -252,110 +236,20 @@ regenerateBtn.addEventListener("click", async () => {
   }
 });
 
-outputChoiceBtns.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    selectSheet(btn.dataset.sheetChoice);
-  });
-});
-
-function getSheetCanvas(key = selectedSheetKey) {
-  return key === "16" ? sheetCanvas16 : sheetCanvas;
-}
-
-function getSheetPreset(key = selectedSheetKey) {
-  return SHEET_PRESETS[key] || SHEET_PRESETS[DEFAULT_SHEET_KEY];
-}
-
-function selectSheet(key) {
-  if (!SHEET_PRESETS[key]) return;
-  selectedSheetKey = key;
-
-  outputChoiceBtns.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.sheetChoice === key);
-  });
-
-  const selectedCanvas = getSheetCanvas(key);
-  [sheetCanvas, sheetCanvas16].forEach((canvas) => {
-    if (!canvas) return;
-    canvas.classList.toggle("hidden", canvas !== selectedCanvas || !lastSheetReady);
-  });
-
-  clearSavePreview();
-}
-
-downloadBtn.addEventListener("click", async () => {
+downloadBothBtn.addEventListener("click", async () => {
   if (!lastSheetReady) return;
-  await saveOrShareImage();
+  await downloadSheets(["40", "16"]);
 });
 
-openImageBtn?.addEventListener("click", async () => {
+download40Btn.addEventListener("click", async () => {
   if (!lastSheetReady) return;
-  const url = await ensureLatestImageUrl();
-  window.open(url, "_blank", "noopener,noreferrer");
+  await downloadSheets(["40"]);
 });
 
-closePreviewBtn?.addEventListener("click", () => {
-  if (savePanel) savePanel.classList.add("hidden");
+download16Btn.addEventListener("click", async () => {
+  if (!lastSheetReady) return;
+  await downloadSheets(["16"]);
 });
-
-function canvasToPngBlob(canvas) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("画像データの生成に失敗しました。"));
-    }, "image/png");
-  });
-}
-
-async function ensureLatestImageUrl() {
-  if (latestImageUrl && latestImageKey === selectedSheetKey) return latestImageUrl;
-  if (latestImageUrl) URL.revokeObjectURL(latestImageUrl);
-
-  const blob = await canvasToPngBlob(getSheetCanvas());
-  latestImageUrl = URL.createObjectURL(blob);
-  latestImageKey = selectedSheetKey;
-  return latestImageUrl;
-}
-
-async function saveOrShareImage() {
-  const preset = getSheetPreset();
-  const filename = sanitizeFilename(`${currentFileName}_swing_sheet_${preset.count}frames.png`);
-  const blob = await canvasToPngBlob(getSheetCanvas());
-  const file = new File([blob], filename, { type: "image/png" });
-
-  if (latestImageUrl) URL.revokeObjectURL(latestImageUrl);
-  latestImageUrl = URL.createObjectURL(blob);
-  latestImageKey = selectedSheetKey;
-
-  if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: `Golf Swing Contact Sheet ${preset.count} frames`,
-        text: `ゴルフスイングの${preset.count}コマ一覧画像`
-      });
-      return;
-    } catch (error) {
-      // 共有キャンセルや非対応時は下のプレビュー保存へフォールバックします。
-    }
-  }
-
-  const a = document.createElement("a");
-  a.href = latestImageUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  showSavePreview(latestImageUrl);
-}
-
-function showSavePreview(url) {
-  if (!savePanel || !savePreview) return;
-  savePreview.src = url;
-  savePanel.classList.remove("hidden");
-  savePanel.scrollIntoView({ behavior: "smooth", block: "start" });
-}
 
 function buildTimes(start, end, count) {
   const range = Math.max(0.001, end - start);
@@ -451,11 +345,7 @@ async function estimateSwingRange() {
     setStatus(`自動推定中です… ${i + 1}/${times.length}`);
     await seekVideo(times[i]);
     const gray = getGrayFrame();
-    if (prevGray) {
-      motion.push(motionDiff(prevGray, gray));
-    } else {
-      motion.push(0);
-    }
+    motion.push(prevGray ? motionDiff(prevGray, gray) : 0);
     prevGray = gray;
   }
 
@@ -487,24 +377,17 @@ async function estimateSwingRange() {
     endIdx = Math.min(smoothed.length - 1, peakIdx + 10);
   }
 
-  let estStart = times[startIdx];
-  let estEnd = times[endIdx];
-
   const paddingPre = Math.min(0.20, duration * 0.02);
   const paddingPost = Math.min(0.35, duration * 0.03);
-  estStart = clamp(estStart - paddingPre, 0, duration);
-  estEnd = clamp(estEnd + paddingPost, estStart + 0.10, duration);
+  let estStart = clamp(times[startIdx] - paddingPre, 0, duration);
+  let estEnd = clamp(times[endIdx] + paddingPost, estStart + 0.10, duration);
 
   const activityRatio = peakVal > 0 ? (peakVal - base) / Math.max(peakVal, 1) : 0;
   let confidence = "中";
   if (activityRatio > 0.72) confidence = "高";
   if (activityRatio < 0.45) confidence = "低";
 
-  return {
-    start: estStart,
-    end: estEnd,
-    confidence,
-  };
+  return { start: estStart, end: estEnd, confidence };
 }
 
 async function autoDetectAndGenerate() {
@@ -516,7 +399,7 @@ async function autoDetectAndGenerate() {
   endTime = result.end;
   confidenceText = result.confidence;
   updateRangeUI();
-  await generateSheet(true);
+  await generateSheets(true);
 }
 
 function captureFrame(time, index, preset) {
@@ -572,7 +455,7 @@ async function captureFramesForPreset(preset) {
   return frames;
 }
 
-async function generateSheet(autoMode = false) {
+async function generateSheets(autoMode = false) {
   if (!video.src || !Number.isFinite(video.duration)) {
     throw new Error("先に動画を読み込んでください。");
   }
@@ -592,21 +475,18 @@ async function generateSheet(autoMode = false) {
   drawSheet(frames16, preset16, sheetCanvas16);
 
   lastSheetReady = true;
-  outputChoiceBtns.forEach((btn) => {
+  [downloadBothBtn, download40Btn, download16Btn].forEach((btn) => {
     btn.disabled = false;
   });
-  selectSheet(selectedSheetKey);
-  downloadBtn.disabled = false;
   setBusy(false);
 
-  const message = `${fmt(startTime)}s〜${fmt(endTime)}s を40コマ版・16コマ版の一覧画像にしました。`;
+  const message = `${fmt(startTime)}s〜${fmt(endTime)}s を40コマ版・16コマ版にしました。`;
   setStatus(autoMode ? `自動推定完了: ${message}` : `再生成完了: ${message}`);
 }
 
 function drawSheet(frames, preset, canvas) {
   canvas.width = OUTER * 2 + preset.cols * preset.cellW + (preset.cols - 1) * GAP;
   canvas.height = HEADER_H + OUTER + preset.rows * preset.cellH + (preset.rows - 1) * GAP + OUTER;
-  canvas.classList.remove("hidden");
 
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#ffffff";
@@ -633,7 +513,60 @@ function drawSheet(frames, preset, canvas) {
   });
 }
 
-// PWA: service worker registration and simple install status
+function canvasToPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("画像データの生成に失敗しました。"));
+    }, "image/png");
+  });
+}
+
+function getCanvasByKey(key) {
+  return key === "16" ? sheetCanvas16 : sheetCanvas;
+}
+
+async function createSheetBlob(key) {
+  const preset = SHEET_PRESETS[key];
+  const canvas = getCanvasByKey(key);
+  const blob = await canvasToPngBlob(canvas);
+  const filename = sanitizeFilename(`${currentFileName}_swing_sheet_${preset.count}frames.png`);
+  return { blob, filename, preset };
+}
+
+function triggerDownload(blob, filename, delay = 0) {
+  window.setTimeout(() => {
+    const url = URL.createObjectURL(blob);
+    activeDownloadUrls.push(url);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }, delay);
+}
+
+async function downloadSheets(keys) {
+  if (!lastSheetReady) return;
+
+  savePanel.classList.add("hidden");
+  const sheets = [];
+  for (const key of keys) {
+    sheets.push(await createSheetBlob(key));
+  }
+
+  sheets.forEach((sheet, idx) => {
+    triggerDownload(sheet.blob, sheet.filename, idx * 700);
+  });
+
+  savePanel.classList.remove("hidden");
+  const label = keys.length === 2 ? "40コマ版・16コマ版" : `${SHEET_PRESETS[keys[0]].count}コマ版`;
+  setStatus(`${label}のダウンロードを開始しました。`);
+}
+
+// PWA service worker
 const installStatus = document.getElementById("installStatus");
 
 function updateInstallStatus(message) {

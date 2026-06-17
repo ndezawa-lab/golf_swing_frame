@@ -11,28 +11,13 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="./style.css" />
-  <script src="./config.js"></script>
 </head>
 <body>
-  <section id="authGate" class="auth-gate">
-    <form id="authForm" class="auth-card">
-      <div class="auth-icon">⛳</div>
-      <h1>Golf Swing Sheet Maker</h1>
-      <p>利用するにはパスワードを入力してください。</p>
-      <input id="passwordInput" type="password" placeholder="パスワード" autocomplete="current-password" />
-      <button type="submit" class="primary wide">ログイン</button>
-      <div id="authError" class="auth-error"></div>
-      <small>動画処理はログイン後も端末内だけで実行されます。</small>
-    </form>
-  </section>
-
-  <div id="appRoot" class="locked">
-    <button id="logoutBtn" type="button" class="logout-btn hidden">ログアウト</button>
   <header class="topbar">
     <div>
-      <p class="eyebrow">Golf Swing Sheet Maker PWA</p>
-      <h1>ホーム画面から使える40コマ一覧化アプリ</h1>
-      <p class="sub">ゴルフ練習場での利用を想定。ホーム画面追加・オフライン起動に対応したPWA版</p>
+      <p class="eyebrow">Golf Swing Sheet Maker v12</p>
+      <h1>スイング動画を40コマ・16コマ画像に変換</h1>
+      <p class="sub">ログインなし。ページ内プレビューなし。生成後は直接ダウンロードします。</p>
     </div>
   </header>
 
@@ -77,8 +62,8 @@
     <section class="card install-card">
       <div class="section-head compact">
         <div>
-          <h2>ホーム画面に追加して使う</h2>
-          <p>iPhoneはSafariの共有ボタンから「ホーム画面に追加」。AndroidはChromeのメニューから「アプリをインストール」または「ホーム画面に追加」。一度開くと、次回以降はオフラインでも起動できます。</p>
+          <h2>ホーム画面から起動できます</h2>
+          <p>一度開いたあとはPWAとしてホーム画面から起動できます。動画処理は端末内で行います。</p>
         </div>
       </div>
       <div class="install-status" id="installStatus">PWA準備中...</div>
@@ -88,7 +73,7 @@
       <div class="section-head">
         <div>
           <h2>STEP 1: 自動推定結果</h2>
-          <p>まず自動推定を使い、必要な場合だけ微調整してください。</p>
+          <p>動画全体の動き量からアドレス〜フィニッシュを推定します。必要な場合だけ微調整してください。</p>
         </div>
         <div class="inline-actions">
           <button id="autoDetectBtn" class="primary" type="button">自動推定を再実行</button>
@@ -112,11 +97,6 @@
           <span class="note">40コマ版 / 16コマ版</span>
         </div>
       </div>
-
-      <div class="tips-box">
-        <div class="tips-title">自動推定の考え方</div>
-        <p>動画全体の動き量を見て、<strong>静止状態 → スイング開始</strong> をアドレス候補、<strong>インパクト後に動きが落ち着く地点</strong> をフィニッシュ候補として推定しています。</p>
-      </div>
     </section>
 
     <section id="manualCard" class="card hidden">
@@ -133,52 +113,37 @@
       </div>
 
       <div class="action-row tight">
-        <button id="regenerateBtn" class="primary wide" type="button">この範囲で一覧画像を再生成</button>
+        <button id="regenerateBtn" class="primary wide" type="button">この範囲で画像を再生成</button>
       </div>
     </section>
 
     <section class="card result-card">
       <div class="section-head">
         <div>
-          <h2>STEP 3: 一覧画像を保存</h2>
-          <p>ChatGPT解析向けに、40コマ版と16コマ版を同時生成します。保存したい形式を選択してください。</p>
+          <h2>STEP 3: 画像をダウンロード</h2>
+          <p>ページ内プレビューは表示しません。生成後、必要な画像ファイルを直接ダウンロードしてください。</p>
         </div>
-        <div class="inline-actions">
-          <button id="downloadBtn" class="primary" type="button" disabled>選択中の画像を保存 / 共有</button>
+        <div class="inline-actions stacked-actions">
+          <button id="downloadBothBtn" class="primary" type="button" disabled>40コマ・16コマをまとめてダウンロード</button>
+          <div class="download-singles">
+            <button id="download40Btn" class="ghost" type="button" disabled>40コマだけDL</button>
+            <button id="download16Btn" class="ghost" type="button" disabled>16コマだけDL</button>
+          </div>
         </div>
       </div>
 
       <div id="status" class="status">動画を選択してください。</div>
-
-      <div id="outputSelector" class="output-selector">
-        <button class="sheet-choice active" data-sheet-choice="40" type="button" disabled>
-          <strong>40コマ版</strong>
-          <span>詳細解析向け / 5列×8行</span>
-        </button>
-        <button class="sheet-choice" data-sheet-choice="16" type="button" disabled>
-          <strong>16コマ版</strong>
-          <span>確認・共有向け / 4列×4行</span>
-        </button>
-      </div>
-
-      <canvas id="sheetCanvas" class="sheet hidden" data-sheet-key="40"></canvas>
-      <canvas id="sheetCanvas16" class="sheet hidden" data-sheet-key="16"></canvas>
-
       <div id="savePanel" class="save-panel hidden">
-        <h3>iPhoneで保存する場合</h3>
-        <p>保存したい形式を上で選択してから「選択中の画像を保存 / 共有」を押してください。共有シートが開かない場合は、下のプレビュー画像を長押しして保存してください。</p>
-        <div class="save-actions">
-          <button id="openImageBtn" class="ghost wide" type="button">画像だけを開く</button>
-          <button id="closePreviewBtn" class="ghost wide" type="button">プレビューを閉じる</button>
-        </div>
-        <img id="savePreview" class="save-preview" alt="生成したスイング一覧画像プレビュー" />
+        <h3>ダウンロードを開始しました</h3>
+        <p>ブラウザのダウンロード履歴、またはスマホの「ファイル」アプリ内のダウンロードフォルダを確認してください。</p>
       </div>
+
+      <canvas id="sheetCanvas" class="export-canvas hidden" data-sheet-key="40"></canvas>
+      <canvas id="sheetCanvas16" class="export-canvas hidden" data-sheet-key="16"></canvas>
     </section>
   </main>
 
   <canvas id="workCanvas" class="hidden"></canvas>
   <script src="./app.js"></script>
-    </div>
-  <script src="./auth.js"></script>
 </body>
 </html>

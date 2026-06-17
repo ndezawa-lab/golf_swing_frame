@@ -1,12 +1,9 @@
-const CACHE_NAME = "golf-swing-sheet-maker-v10-40-and-16";
+const CACHE_NAME = "golf-swing-sheet-maker-v12-no-login-direct-download";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
-  "./config.js",
-  "./auth.js",
-  "./password-hash.html",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -38,7 +35,6 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-
       return fetch(event.request)
         .then((response) => {
           const copy = response.clone();
